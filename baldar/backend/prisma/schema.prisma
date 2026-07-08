@@ -1,0 +1,197 @@
+// Схема базы данных — соответствует разделу 5 Технического задания
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPERADMIN
+  DIRECTOR
+  METHODIST
+  TEACHER
+  MEDICAL
+  PARENT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  SICK
+  OTHER
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  OVERDUE
+}
+
+enum EntityStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Organization {
+  id            Int            @id @default(autoincrement())
+  nameStateLang String // Полное наименование на государственном языке
+  nameOffLang   String // Полное наименование на официальном языке
+  shortNameState String
+  shortNameOff  String
+  type          String // Государственный / Частный и т.п.
+  region        String
+  regNumber     String
+  okpo          String
+  inn           String         @unique
+  city          String
+  district      String
+  microdistrict String?
+  street        String
+  building      String
+  office        String?
+  phone         String
+  email         String?
+  status        EntityStatus   @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  branches      Branch[]
+  bankAccounts  BankAccount[]
+  groups        Group[]
+  users         User[]
+  payments      Payment[]
+
+  @@map("organizations")
+}
+
+model Branch {
+  id             Int          @id @default(autoincrement())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId Int
+  name           String
+  address        String
+  createdAt      DateTime     @default(now())
+
+  groups         Group[]
+
+  @@map("branches")
+}
+
+model BankAccount {
+  id             Int          @id @default(autoincrement())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId Int
+  accountNumber  String
+  bankName       String
+  purpose        String?
+  createdAt      DateTime     @default(now())
+
+  @@map("bank_accounts")
+}
+
+model PaymentCode {
+  id          Int           @id @default(autoincrement())
+  code        String        @unique
+  shortName   String
+  fullName    String
+  startDate   DateTime
+  endDate     DateTime?
+  status      EntityStatus  @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+
+  payments    Payment[]
+
+  @@map("payment_codes")
+}
+
+model Group {
+  id             Int          @id @default(autoincrement())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId Int
+  branch         Branch?      @relation(fields: [branchId], references: [id])
+  branchId       Int?
+  name           String
+  ageCategory    String?
+
+  children       Child[]
+  teachers       User[]       @relation("TeacherGroups")
+
+  @@map("groups")
+}
+
+model Child {
+  id          Int          @id @default(autoincrement())
+  group       Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId     Int
+  fullName    String
+  birthDate   DateTime
+  status      EntityStatus @default(ACTIVE)
+  parent      User?        @relation("ParentChildren", fields: [parentId], references: [id])
+  parentId    Int?
+  createdAt   DateTime     @default(now())
+
+  attendance  Attendance[]
+  payments    Payment[]
+
+  @@map("children")
+}
+
+model User {
+  id             Int           @id @default(autoincrement())
+  role           Role
+  fullName       String
+  phone          String        @unique
+  passwordHash   String
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId Int?
+  createdAt      DateTime      @default(now())
+
+  teachingGroups Group[]       @relation("TeacherGroups")
+  children       Child[]       @relation("ParentChildren")
+
+  @@map("users")
+}
+
+model Attendance {
+  id        Int              @id @default(autoincrement())
+  child     Child            @relation(fields: [childId], references: [id], onDelete: Cascade)
+  childId   Int
+  date      DateTime
+  status    AttendanceStatus
+  illness   String? // ОРВИ, Грипп, Ангина, Ветрянка, Другое
+  createdAt DateTime         @default(now())
+
+  @@unique([childId, date])
+  @@map("attendance")
+}
+
+model Payment {
+  id             Int           @id @default(autoincrement())
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  organizationId Int
+  child          Child?        @relation(fields: [childId], references: [id])
+  childId        Int?
+  paymentCode    PaymentCode   @relation(fields: [paymentCodeId], references: [id])
+  paymentCodeId  Int
+  amount         Decimal       @db.Decimal(12, 2)
+  status         PaymentStatus @default(PENDING)
+  dueDate        DateTime?
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+
+  @@map("payments")
+}
+
+model ArchiveRecord {
+  id         Int      @id @default(autoincrement())
+  entityType String
+  entityId   Int
+  data       Json
+  deletedAt  DateTime @default(now())
+  deletedBy  Int?
+
+  @@map("archive_records")
+}
