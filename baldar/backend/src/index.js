@@ -11,7 +11,6 @@ const attendanceRoutes = require("./routes/attendance.routes");
 const overviewRoutes = require("./routes/overview.routes");
 const archiveRoutes = require("./routes/archive.routes");
 const parentRoutes = require("./routes/parent.routes");
-const setupRoutes = require("./routes/setup.routes");
 
 const app = express();
 app.use(cors());
@@ -28,7 +27,6 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/overview", overviewRoutes);
 app.use("/api/archive", archiveRoutes);
 app.use("/api/parent", parentRoutes);
-app.use("/api/setup", setupRoutes);
 
 // Обработчик ошибок по умолчанию
 app.use((err, req, res, next) => {
